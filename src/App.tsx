@@ -1,10 +1,22 @@
 import { useEffect, useMemo, useState } from "react";
+import type { Session } from "@supabase/supabase-js";
+import { AuthPanel } from "./components/AuthPanel";
+import { CreateScenarioModal } from "./components/CreateScenarioModal";
 import { IncidentDetails } from "./components/IncidentDetails";
 import { IncidentQueue } from "./components/IncidentQueue";
 import { NewIncidentModal } from "./components/NewIncidentModal";
+import { ScenarioPanel } from "./components/ScenarioPanel";
 import { Timeline } from "./components/Timeline";
 import { UnitBoard } from "./components/UnitBoard";
+import {
+  createScenario,
+  deleteScenario,
+  listMyScenarios,
+  type CreateScenarioInput,
+} from "./lib/scenarios";
 import { loadCadState, resetCadState, saveCadState } from "./lib/storage";
+import { supabase } from "./lib/supabase";
+import type { Scenario } from "./types/scenario";
 import type {
   CadEvent,
   CadState,
@@ -23,6 +35,7 @@ function now(): string {
 
 function incidentNumber(): string {
   const date = new Date();
+
   const datePart = [
     date.getFullYear(),
     String(date.getMonth() + 1).padStart(2, "0"),
@@ -41,14 +54,92 @@ function readableStatus(status: string): string {
 export default function App() {
   const [cadState, setCadState] = useState<CadState>(() => loadCadState());
   const [selectedIncidentId, setSelectedIncidentId] = useState<string | null>(
-    () => loadCadState().incidents.find((incident) => incident.status !== "CLOSED")
-      ?.id ?? null,
+    () =>
+      loadCadState().incidents.find((incident) => incident.status !== "CLOSED")
+        ?.id ?? null,
   );
   const [isNewCallOpen, setIsNewCallOpen] = useState(false);
+
+  const [session, setSession] = useState<Session | null>(null);
+  const [scenarios, setScenarios] = useState<Scenario[]>([]);
+  const [selectedScenarioId, setSelectedScenarioId] = useState<string | null>(
+    null,
+  );
+  const [isScenariosLoading, setIsScenariosLoading] = useState(false);
+  const [scenarioError, setScenarioError] = useState<string | null>(null);
+  const [isCreateScenarioOpen, setIsCreateScenarioOpen] = useState(false);
+  const [isCreatingScenario, setIsCreatingScenario] = useState(false);
 
   useEffect(() => {
     saveCadState(cadState);
   }, [cadState]);
+
+  useEffect(() => {
+    let isMounted = true;
+
+    async function restoreSession() {
+      const {
+        data: { session: nextSession },
+      } = await supabase.auth.getSession();
+
+      if (isMounted) {
+        setSession(nextSession);
+      }
+    }
+
+    void restoreSession();
+
+    const {
+      data: { subscription },
+    } = supabase.auth.onAuthStateChange((_event, nextSession) => {
+      setSession(nextSession);
+    });
+
+    return () => {
+      isMounted = false;
+      subscription.unsubscribe();
+    };
+  }, []);
+
+  useEffect(() => {
+    if (!session) {
+      setScenarios([]);
+      setSelectedScenarioId(null);
+      setScenarioError(null);
+      return;
+    }
+
+    async function loadScenarios() {
+      setIsScenariosLoading(true);
+      setScenarioError(null);
+
+      try {
+        const nextScenarios = await listMyScenarios();
+
+        setScenarios(nextScenarios);
+        setSelectedScenarioId((currentSelectedId) => {
+          const stillExists = nextScenarios.some(
+            (scenario) => scenario.id === currentSelectedId,
+          );
+
+          if (stillExists) {
+            return currentSelectedId;
+          }
+
+          return nextScenarios[0]?.id ?? null;
+        });
+      } catch (error) {
+        const message =
+          error instanceof Error ? error.message : "Unable to load scenarios.";
+
+        setScenarioError(message);
+      } finally {
+        setIsScenariosLoading(false);
+      }
+    }
+
+    void loadScenarios();
+  }, [session]);
 
   const selectedIncident = useMemo(
     () =>
@@ -252,7 +343,8 @@ export default function App() {
             incidentId: incident.id,
             unitId: null,
             type: "INCIDENT_CLOSED",
-            message: "Training incident closed. Assigned units returned to Available.",
+            message:
+              "Training incident closed. Assigned units returned to Available.",
           }),
         ],
       };
@@ -263,11 +355,66 @@ export default function App() {
 
   function resetScenario() {
     const resetState = resetCadState();
+
     setCadState(resetState);
     setSelectedIncidentId(
-      resetState.incidents.find((incident) => incident.status !== "CLOSED")?.id ??
-        null,
+      resetState.incidents.find((incident) => incident.status !== "CLOSED")
+        ?.id ?? null,
     );
+  }
+
+  async function handleCreateScenario(input: CreateScenarioInput) {
+    setIsCreatingScenario(true);
+    setScenarioError(null);
+
+    try {
+      const createdScenario = await createScenario(input);
+
+      setScenarios((current) => [createdScenario, ...current]);
+      setSelectedScenarioId(createdScenario.id);
+      setIsCreateScenarioOpen(false);
+    } catch (error) {
+      const message =
+        error instanceof Error ? error.message : "Unable to create scenario.";
+
+      setScenarioError(message);
+    } finally {
+      setIsCreatingScenario(false);
+    }
+  }
+
+  async function handleDeleteScenario(scenario: Scenario) {
+    const confirmed = window.confirm(
+      `Delete "${scenario.name}"? This cannot be undone.`,
+    );
+
+    if (!confirmed) {
+      return;
+    }
+
+    setScenarioError(null);
+
+    try {
+      await deleteScenario(scenario.id);
+
+      const nextScenarios = scenarios.filter(
+        (item) => item.id !== scenario.id,
+      );
+
+      setScenarios(nextScenarios);
+      setSelectedScenarioId((currentSelectedId) => {
+        if (currentSelectedId !== scenario.id) {
+          return currentSelectedId;
+        }
+
+        return nextScenarios[0]?.id ?? null;
+      });
+    } catch (error) {
+      const message =
+        error instanceof Error ? error.message : "Unable to delete scenario.";
+
+      setScenarioError(message);
+    }
   }
 
   return (
@@ -282,9 +429,16 @@ export default function App() {
         </div>
 
         <div className="topbar-actions">
-          <button className="secondary-button" onClick={resetScenario} type="button">
-            Reset scenario
+          <AuthPanel />
+
+          <button
+            className="secondary-button"
+            onClick={resetScenario}
+            type="button"
+          >
+            Reset local demo
           </button>
+
           <button
             className="primary-button"
             onClick={() => setIsNewCallOpen(true)}
@@ -300,21 +454,46 @@ export default function App() {
         public-safety agencies, radio systems, or real emergency responders.
       </div>
 
+      {session ? (
+        <ScenarioPanel
+          errorMessage={scenarioError}
+          isLoading={isScenariosLoading}
+          onCreate={() => {
+            setScenarioError(null);
+            setIsCreateScenarioOpen(true);
+          }}
+          onDelete={handleDeleteScenario}
+          onSelect={setSelectedScenarioId}
+          scenarios={scenarios}
+          selectedScenarioId={selectedScenarioId}
+        />
+      ) : (
+        <section className="panel signed-out-scenarios">
+          <p className="eyebrow">Optional account feature</p>
+          <h2>Sign in to save training scenarios</h2>
+          <p className="empty-state">
+            You can still use the local fictional demo without an account.
+            Sign in to create private scenario containers in your Supabase
+            workspace.
+          </p>
+        </section>
+      )}
+
       <div className="cad-grid">
         <IncidentQueue
           incidents={cadState.incidents}
-          selectedIncidentId={selectedIncidentId}
           onSelect={setSelectedIncidentId}
+          selectedIncidentId={selectedIncidentId}
         />
 
         <IncidentDetails
           incident={selectedIncident}
-          units={cadState.units}
           onAssignUnit={assignUnit}
           onCloseIncident={closeSelectedIncident}
+          units={cadState.units}
         />
 
-        <UnitBoard units={cadState.units} onStatusChange={updateUnitStatus} />
+        <UnitBoard onStatusChange={updateUnitStatus} units={cadState.units} />
 
         <Timeline events={selectedEvents} />
       </div>
@@ -323,6 +502,14 @@ export default function App() {
         isOpen={isNewCallOpen}
         onClose={() => setIsNewCallOpen(false)}
         onCreate={createIncident}
+      />
+
+      <CreateScenarioModal
+        errorMessage={scenarioError}
+        isCreating={isCreatingScenario}
+        isOpen={isCreateScenarioOpen}
+        onClose={() => setIsCreateScenarioOpen(false)}
+        onCreate={(input) => void handleCreateScenario(input)}
       />
     </main>
   );
