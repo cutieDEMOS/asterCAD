@@ -1,6 +1,9 @@
 import { useEffect, useMemo, useState } from "react";
 import type { Session } from "@supabase/supabase-js";
+
+import { AppSidebar, type AppPage } from "./components/AppSidebar";
 import { AuthPanel } from "./components/AuthPanel";
+import { ConsoleHeader } from "./components/ConsoleHeader";
 import { CreateScenarioModal } from "./components/CreateScenarioModal";
 import { IncidentDetails } from "./components/IncidentDetails";
 import { IncidentQueue } from "./components/IncidentQueue";
@@ -8,6 +11,7 @@ import { NewIncidentModal } from "./components/NewIncidentModal";
 import { ScenarioPanel } from "./components/ScenarioPanel";
 import { Timeline } from "./components/Timeline";
 import { UnitBoard } from "./components/UnitBoard";
+
 import {
   createScenario,
   deleteScenario,
@@ -16,6 +20,7 @@ import {
 } from "./lib/scenarios";
 import { loadCadState, resetCadState, saveCadState } from "./lib/storage";
 import { supabase } from "./lib/supabase";
+
 import type { Scenario } from "./types/scenario";
 import type {
   CadEvent,
@@ -53,20 +58,26 @@ function readableStatus(status: string): string {
 
 export default function App() {
   const [cadState, setCadState] = useState<CadState>(() => loadCadState());
+
   const [selectedIncidentId, setSelectedIncidentId] = useState<string | null>(
     () =>
       loadCadState().incidents.find((incident) => incident.status !== "CLOSED")
         ?.id ?? null,
   );
+
+  const [activePage, setActivePage] = useState<AppPage>("DASHBOARD");
   const [isNewCallOpen, setIsNewCallOpen] = useState(false);
 
   const [session, setSession] = useState<Session | null>(null);
+
   const [scenarios, setScenarios] = useState<Scenario[]>([]);
   const [selectedScenarioId, setSelectedScenarioId] = useState<string | null>(
     null,
   );
+
   const [isScenariosLoading, setIsScenariosLoading] = useState(false);
   const [scenarioError, setScenarioError] = useState<string | null>(null);
+
   const [isCreateScenarioOpen, setIsCreateScenarioOpen] = useState(false);
   const [isCreatingScenario, setIsCreatingScenario] = useState(false);
 
@@ -93,6 +104,12 @@ export default function App() {
       data: { subscription },
     } = supabase.auth.onAuthStateChange((_event, nextSession) => {
       setSession(nextSession);
+
+      if (!nextSession) {
+        setScenarios([]);
+        setSelectedScenarioId(null);
+        setScenarioError(null);
+      }
     });
 
     return () => {
@@ -103,9 +120,6 @@ export default function App() {
 
   useEffect(() => {
     if (!session) {
-      setScenarios([]);
-      setSelectedScenarioId(null);
-      setScenarioError(null);
       return;
     }
 
@@ -117,12 +131,13 @@ export default function App() {
         const nextScenarios = await listMyScenarios();
 
         setScenarios(nextScenarios);
+
         setSelectedScenarioId((currentSelectedId) => {
-          const stillExists = nextScenarios.some(
+          const selectedScenarioStillExists = nextScenarios.some(
             (scenario) => scenario.id === currentSelectedId,
           );
 
-          if (stillExists) {
+          if (selectedScenarioStillExists) {
             return currentSelectedId;
           }
 
@@ -141,12 +156,13 @@ export default function App() {
     void loadScenarios();
   }, [session]);
 
-  const selectedIncident = useMemo(
-    () =>
-      cadState.incidents.find((incident) => incident.id === selectedIncidentId) ??
-      null,
-    [cadState.incidents, selectedIncidentId],
-  );
+  const selectedIncident = useMemo(() => {
+    return (
+      cadState.incidents.find(
+        (incident) => incident.id === selectedIncidentId,
+      ) ?? null
+    );
+  }, [cadState.incidents, selectedIncidentId]);
 
   const selectedEvents = useMemo(() => {
     if (!selectedIncidentId) {
@@ -208,6 +224,7 @@ export default function App() {
 
     setCadState((current) => {
       const unit = current.units.find((item) => item.id === unitId);
+
       const incident = current.incidents.find(
         (item) => item.id === selectedIncidentId,
       );
@@ -357,6 +374,7 @@ export default function App() {
     const resetState = resetCadState();
 
     setCadState(resetState);
+
     setSelectedIncidentId(
       resetState.incidents.find((incident) => incident.status !== "CLOSED")
         ?.id ?? null,
@@ -402,6 +420,7 @@ export default function App() {
       );
 
       setScenarios(nextScenarios);
+
       setSelectedScenarioId((currentSelectedId) => {
         if (currentSelectedId !== scenario.id) {
           return currentSelectedId;
@@ -417,100 +436,189 @@ export default function App() {
     }
   }
 
-  return (
-    <main className="app-shell">
-      <header className="topbar">
-        <div>
-          <p className="eyebrow">cutieDEMOS</p>
-          <h1>cutieCAD</h1>
-          <p className="subtitle">
-            Public-safety dispatch simulator · Training use only
+  function openCreateScenarioModal() {
+    setScenarioError(null);
+    setIsCreateScenarioOpen(true);
+  }
+
+  function renderMainPage() {
+    if (activePage === "DASHBOARD") {
+      return (
+        <>
+          {session ? (
+            <ScenarioPanel
+              errorMessage={scenarioError}
+              isLoading={isScenariosLoading}
+              onCreate={openCreateScenarioModal}
+              onDelete={(scenario) => void handleDeleteScenario(scenario)}
+              onSelect={setSelectedScenarioId}
+              scenarios={scenarios}
+              selectedScenarioId={selectedScenarioId}
+            />
+          ) : (
+            <section className="panel signed-out-scenarios">
+              <p className="eyebrow">Optional account feature</p>
+              <h2>Sign in to save training scenarios</h2>
+              <p className="empty-state">
+                You can still use the local fictional demo without an account.
+                Sign in to create and manage private training scenarios.
+              </p>
+            </section>
+          )}
+
+          <div className="dispatch-dashboard-grid">
+            <IncidentQueue
+              incidents={cadState.incidents}
+              onSelect={setSelectedIncidentId}
+              selectedIncidentId={selectedIncidentId}
+            />
+
+            <IncidentDetails
+              incident={selectedIncident}
+              onAssignUnit={assignUnit}
+              onCloseIncident={closeSelectedIncident}
+              units={cadState.units}
+            />
+
+            <UnitBoard
+              onStatusChange={updateUnitStatus}
+              units={cadState.units}
+            />
+
+            <Timeline events={selectedEvents} />
+          </div>
+        </>
+      );
+    }
+
+    if (activePage === "INCIDENTS") {
+      return (
+        <section className="panel page-placeholder">
+          <p className="eyebrow">Incident management</p>
+          <h2>Incidents</h2>
+          <p>
+            This page will become a full fictional incident table with filters,
+            sorting, notes, assignments, and printable training summaries.
           </p>
-        </div>
+        </section>
+      );
+    }
 
-        <div className="topbar-actions">
-          <AuthPanel />
+    if (activePage === "UNITS") {
+      return (
+        <section className="panel page-placeholder">
+          <p className="eyebrow">Resource management</p>
+          <h2>Units</h2>
 
-          <button
-            className="secondary-button"
-            onClick={resetScenario}
-            type="button"
-          >
-            Reset local demo
-          </button>
+          <UnitBoard
+            onStatusChange={updateUnitStatus}
+            units={cadState.units}
+          />
+        </section>
+      );
+    }
 
-          <button
-            className="primary-button"
-            onClick={() => setIsNewCallOpen(true)}
-            type="button"
-          >
-            + New simulated call
-          </button>
-        </div>
-      </header>
+    if (activePage === "PERSONNEL") {
+      return (
+        <section className="panel page-placeholder">
+          <p className="eyebrow">Fictional roster</p>
+          <h2>Personnel</h2>
+          <p>
+            This page will contain fictional personnel profiles,
+            qualifications, schedules, and unit assignments. Do not add real
+            agency personnel information.
+          </p>
+        </section>
+      );
+    }
 
-      <div className="safety-banner">
-        This is a fictional training/demo interface. It is not connected to 911,
-        public-safety agencies, radio systems, or real emergency responders.
-      </div>
+    if (activePage === "SCENARIOS") {
+      if (!session) {
+        return (
+          <section className="panel signed-out-scenarios">
+            <p className="eyebrow">Sign-in required</p>
+            <h2>Private scenarios</h2>
+            <p className="empty-state">
+              Sign in with GitHub or email to create private fictional training
+              scenarios.
+            </p>
+          </section>
+        );
+      }
 
-      {session ? (
+      return (
         <ScenarioPanel
           errorMessage={scenarioError}
           isLoading={isScenariosLoading}
-          onCreate={() => {
-            setScenarioError(null);
-            setIsCreateScenarioOpen(true);
-          }}
-          onDelete={handleDeleteScenario}
+          onCreate={openCreateScenarioModal}
+          onDelete={(scenario) => void handleDeleteScenario(scenario)}
           onSelect={setSelectedScenarioId}
           scenarios={scenarios}
           selectedScenarioId={selectedScenarioId}
         />
-      ) : (
-        <section className="panel signed-out-scenarios">
-          <p className="eyebrow">Optional account feature</p>
-          <h2>Sign in to save training scenarios</h2>
-          <p className="empty-state">
-            You can still use the local fictional demo without an account.
-            Sign in to create private scenario containers in your Supabase
-            workspace.
-          </p>
-        </section>
-      )}
+      );
+    }
 
-      <div className="cad-grid">
-        <IncidentQueue
-          incidents={cadState.incidents}
-          onSelect={setSelectedIncidentId}
-          selectedIncidentId={selectedIncidentId}
+    return (
+      <section className="panel page-placeholder">
+        <p className="eyebrow">Application configuration</p>
+        <h2>Settings</h2>
+        <p>
+          This page will later contain display preferences, fictional default
+          unit states, scenario defaults, and other training-only settings.
+        </p>
+      </section>
+    );
+  }
+
+  return (
+    <div className="console-layout">
+      <AppSidebar activePage={activePage} onNavigate={setActivePage} />
+
+      <main className="console-main">
+        <ConsoleHeader
+          onNewIncident={() => setIsNewCallOpen(true)}
+          onSelectScenario={setSelectedScenarioId}
+          scenarios={scenarios}
+          selectedScenarioId={selectedScenarioId}
         />
 
-        <IncidentDetails
-          incident={selectedIncident}
-          onAssignUnit={assignUnit}
-          onCloseIncident={closeSelectedIncident}
-          units={cadState.units}
+        <div className="console-safety-strip">
+          <span>Training / Simulation Only</span>
+          Fictional data only. This system does not contact 911, dispatch
+          agencies, radio systems, or emergency responders.
+        </div>
+
+        <div className="console-content">
+          <div className="console-utility-bar">
+            <AuthPanel />
+
+            <button
+              className="secondary-button"
+              onClick={resetScenario}
+              type="button"
+            >
+              Reset local demo
+            </button>
+          </div>
+
+          {renderMainPage()}
+        </div>
+
+        <NewIncidentModal
+          isOpen={isNewCallOpen}
+          onClose={() => setIsNewCallOpen(false)}
+          onCreate={createIncident}
         />
 
-        <UnitBoard onStatusChange={updateUnitStatus} units={cadState.units} />
-
-        <Timeline events={selectedEvents} />
-      </div>
-
-      <NewIncidentModal
-        isOpen={isNewCallOpen}
-        onClose={() => setIsNewCallOpen(false)}
-        onCreate={createIncident}
-      />
-
-      <CreateScenarioModal
-        errorMessage={scenarioError}
-        isCreating={isCreatingScenario}
-        isOpen={isCreateScenarioOpen}
-        onClose={() => setIsCreateScenarioOpen(false)}
-        onCreate={(input) => void handleCreateScenario(input)}
-      />
-    </main>
+        <CreateScenarioModal
+          errorMessage={scenarioError}
+          isCreating={isCreatingScenario}
+          isOpen={isCreateScenarioOpen}
+          onClose={() => setIsCreateScenarioOpen(false)}
+          onCreate={(input) => void handleCreateScenario(input)}
+        />
+      </main>
+    </div>
   );
 }
