@@ -1,0 +1,536 @@
+:root {
+  color: #eef4ff;
+  background: #07111f;
+  font-family:
+    Inter, ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI",
+    sans-serif;
+  font-synthesis: none;
+  text-rendering: optimizeLegibility;
+}
+
+* {
+  box-sizing: border-box;
+}
+
+body {
+  margin: 0;
+  min-width: 320px;
+  min-height: 100vh;
+  background:
+    radial-gradient(circle at 0% 0%, rgba(39, 95, 157, 0.28), transparent 36rem),
+    #07111f;
+}
+
+button,
+input,
+select,
+textarea {
+  font: inherit;
+}
+
+button {
+  cursor: pointer;
+}
+
+button:focus-visible,
+input:focus-visible,
+select:focus-visible,
+textarea:focus-visible {
+  outline: 3px solid #65caff;
+  outline-offset: 2px;
+}
+
+.app-shell {
+  width: min(1600px, 100%);
+  margin: 0 auto;
+  padding: 1.25rem;
+}
+
+.topbar {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 1rem;
+  margin-bottom: 1rem;
+}
+
+h1,
+h2,
+h3,
+p {
+  margin-top: 0;
+}
+
+h1 {
+  margin-bottom: 0.15rem;
+  font-size: clamp(1.75rem, 4vw, 2.5rem);
+  letter-spacing: -0.04em;
+}
+
+h2 {
+  margin-bottom: 0;
+  font-size: 1.1rem;
+}
+
+h3 {
+  margin-bottom: 0.65rem;
+  font-size: 0.92rem;
+}
+
+.eyebrow {
+  margin-bottom: 0.2rem;
+  color: #79c7ff;
+  font-size: 0.73rem;
+  font-weight: 800;
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+}
+
+.subtitle {
+  margin-bottom: 0;
+  color: #b8c7dc;
+}
+
+.topbar-actions,
+.modal-actions,
+.assign-buttons {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.65rem;
+}
+
+.primary-button,
+.secondary-button,
+.danger-button,
+.icon-button {
+  border: 0;
+  border-radius: 0.55rem;
+  padding: 0.7rem 0.9rem;
+  font-weight: 800;
+}
+
+.primary-button {
+  color: #041018;
+  background: #6be7ff;
+}
+
+.primary-button:hover {
+  background: #a3f1ff;
+}
+
+.secondary-button {
+  color: #dcecff;
+  background: #173354;
+}
+
+.secondary-button:hover {
+  background: #22466f;
+}
+
+.danger-button {
+  margin-top: 1.25rem;
+  color: #ffdfe1;
+  background: #6e2632;
+}
+
+.danger-button:hover {
+  background: #8b3442;
+}
+
+.safety-banner {
+  margin-bottom: 1rem;
+  border: 1px solid #9d7c28;
+  border-radius: 0.65rem;
+  padding: 0.8rem 1rem;
+  color: #ffecae;
+  background: rgba(116, 83, 18, 0.35);
+  font-size: 0.9rem;
+  line-height: 1.45;
+}
+
+.cad-grid {
+  display: grid;
+  grid-template-columns: minmax(260px, 0.95fr) minmax(360px, 1.45fr);
+  gap: 1rem;
+}
+
+.panel {
+  overflow: hidden;
+  border: 1px solid #1e3a5b;
+  border-radius: 0.8rem;
+  background: rgba(12, 29, 48, 0.92);
+  box-shadow: 0 0.9rem 2.4rem rgba(0, 0, 0, 0.18);
+}
+
+.panel-heading {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 0.75rem;
+  border-bottom: 1px solid #1e3a5b;
+  padding: 1rem;
+}
+
+.count-badge {
+  display: grid;
+  min-width: 1.9rem;
+  min-height: 1.9rem;
+  place-items: center;
+  border-radius: 999px;
+  color: #07111f;
+  background: #8ad8ff;
+  font-size: 0.8rem;
+  font-weight: 900;
+}
+
+.incident-list,
+.unit-list {
+  display: grid;
+}
+
+.incident-card {
+  display: grid;
+  grid-template-columns: auto 1fr auto;
+  align-items: center;
+  gap: 0.75rem;
+  width: 100%;
+  border: 0;
+  border-bottom: 1px solid #183452;
+  padding: 0.9rem 1rem;
+  color: inherit;
+  background: transparent;
+  text-align: left;
+}
+
+.incident-card:hover,
+.incident-card.selected {
+  background: #163b5f;
+}
+
+.incident-card-content {
+  display: grid;
+  gap: 0.2rem;
+  min-width: 0;
+}
+
+.incident-card small,
+.unit-title small {
+  overflow: hidden;
+  color: #b4c7df;
+  font-size: 0.76rem;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.incident-status {
+  color: #9bb9d9;
+  font-size: 0.7rem;
+  font-weight: 800;
+}
+
+.priority {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-width: 2.55rem;
+  border-radius: 0.35rem;
+  padding: 0.28rem 0.4rem;
+  color: #070a10;
+  font-size: 0.7rem;
+  font-weight: 900;
+}
+
+.priority-1 {
+  background: #ff6e79;
+}
+
+.priority-2 {
+  background: #ffb75e;
+}
+
+.priority-3 {
+  background: #f2dd69;
+}
+
+.priority-4 {
+  background: #8fe39a;
+}
+
+.incident-details {
+  padding-bottom: 1rem;
+}
+
+.incident-details .panel-heading {
+  margin-bottom: 1rem;
+}
+
+.details-grid {
+  display: grid;
+  grid-template-columns: 1fr 1.5fr;
+  gap: 1rem;
+  margin: 0;
+  padding: 0 1rem;
+}
+
+.details-grid dt {
+  margin-bottom: 0.3rem;
+  color: #84a6c9;
+  font-size: 0.7rem;
+  font-weight: 900;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+}
+
+.details-grid dd {
+  margin: 0;
+  color: #f1f7ff;
+  line-height: 1.45;
+}
+
+.full-width {
+  grid-column: 1 / -1;
+}
+
+.details-section {
+  border-top: 1px solid #1e3a5b;
+  margin-top: 1.1rem;
+  padding: 1rem 1rem 0;
+}
+
+.assigned-unit-list {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.5rem;
+}
+
+.assigned-unit {
+  border: 1px solid #32648e;
+  border-radius: 999px;
+  padding: 0.38rem 0.6rem;
+  color: #cce9ff;
+  background: #112b45;
+  font-size: 0.78rem;
+  font-weight: 700;
+}
+
+.incident-details .danger-button {
+  margin-left: 1rem;
+}
+
+.unit-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.75rem;
+  border-bottom: 1px solid #183452;
+  padding: 0.85rem 1rem;
+}
+
+.unit-title {
+  display: flex;
+  align-items: center;
+  gap: 0.65rem;
+  min-width: 0;
+}
+
+.unit-title > div {
+  display: grid;
+  gap: 0.2rem;
+}
+
+.agency-tag {
+  min-width: 3.3rem;
+  border-radius: 0.35rem;
+  padding: 0.3rem;
+  color: #07111f;
+  font-size: 0.67rem;
+  font-weight: 900;
+  text-align: center;
+}
+
+.agency-tag.police {
+  background: #78c8ff;
+}
+
+.agency-tag.fire {
+  background: #ff916f;
+}
+
+.agency-tag.ems {
+  background: #96e3ad;
+}
+
+.status-select {
+  max-width: 9.5rem;
+  border: 1px solid #2b5c84;
+  border-radius: 0.4rem;
+  padding: 0.45rem;
+  color: #e9f4ff;
+  background: #102842;
+  font-size: 0.73rem;
+  font-weight: 800;
+}
+
+.status-available {
+  border-color: #55b875;
+  color: #a9f2bd;
+}
+
+.status-en_route,
+.status-on_scene {
+  border-color: #e3a84e;
+  color: #ffe0a2;
+}
+
+.status-out_of_service {
+  border-color: #a75d65;
+  color: #ffb8bf;
+}
+
+.timeline-list {
+  display: grid;
+  gap: 0;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.timeline-list li {
+  display: grid;
+  grid-template-columns: 6.7rem 1fr;
+  gap: 0.75rem;
+  border-bottom: 1px solid #183452;
+  padding: 0.8rem 1rem;
+}
+
+.timeline-list time {
+  color: #8db7dd;
+  font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
+  font-size: 0.75rem;
+}
+
+.timeline-list p {
+  margin-bottom: 0;
+  color: #e5f0fc;
+  line-height: 1.35;
+}
+
+.empty-state {
+  margin: 0;
+  padding: 1rem;
+  color: #aac1da;
+  line-height: 1.5;
+}
+
+.modal-backdrop {
+  position: fixed;
+  z-index: 10;
+  inset: 0;
+  display: grid;
+  place-items: center;
+  padding: 1rem;
+  background: rgba(0, 0, 0, 0.67);
+}
+
+.modal {
+  width: min(100%, 38rem);
+  border: 1px solid #32648e;
+  border-radius: 0.9rem;
+  background: #0e2238;
+  box-shadow: 0 2rem 5rem rgba(0, 0, 0, 0.45);
+}
+
+.modal-heading {
+  display: flex;
+  justify-content: space-between;
+  gap: 1rem;
+  border-bottom: 1px solid #1e3a5b;
+  padding: 1rem;
+}
+
+.icon-button {
+  width: 2.2rem;
+  height: 2.2rem;
+  padding: 0;
+  color: #d9edff;
+  background: #1a3859;
+  font-size: 1.4rem;
+}
+
+.modal form {
+  display: grid;
+  gap: 0.95rem;
+  padding: 1rem;
+}
+
+.modal label {
+  display: grid;
+  gap: 0.4rem;
+  color: #c4d9f0;
+  font-size: 0.8rem;
+  font-weight: 800;
+}
+
+.modal input,
+.modal select,
+.modal textarea {
+  width: 100%;
+  border: 1px solid #305a7e;
+  border-radius: 0.45rem;
+  padding: 0.65rem;
+  color: #edf7ff;
+  background: #091a2b;
+}
+
+.modal textarea {
+  resize: vertical;
+}
+
+.modal-actions {
+  justify-content: flex-end;
+  margin-top: 0.25rem;
+}
+
+@media (max-width: 900px) {
+  .topbar {
+    align-items: flex-start;
+    flex-direction: column;
+  }
+
+  .cad-grid {
+    grid-template-columns: 1fr;
+  }
+}
+
+@media (max-width: 520px) {
+  .app-shell {
+    padding: 0.75rem;
+  }
+
+  .topbar-actions {
+    width: 100%;
+  }
+
+  .topbar-actions button {
+    flex: 1;
+  }
+
+  .unit-row {
+    align-items: flex-start;
+    flex-direction: column;
+  }
+
+  .status-select {
+    max-width: none;
+    width: 100%;
+  }
+
+  .timeline-list li {
+    grid-template-columns: 1fr;
+    gap: 0.25rem;
+  }
+
+  .details-grid {
+    grid-template-columns: 1fr;
+  }
+}
