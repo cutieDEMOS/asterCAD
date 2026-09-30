@@ -1132,3 +1132,76 @@ h3 {
     flex-direction: column;
   }
 }
+
+.scenario-unit-list {
+  display: grid;
+}
+
+.scenario-unit-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.85rem;
+  border-bottom: 1px solid #293d4f;
+  padding: 0.75rem 0.9rem;
+}
+
+.scenario-unit-identity {
+  display: flex;
+  align-items: center;
+  gap: 0.7rem;
+  min-width: 0;
+}
+
+.scenario-unit-identity > div {
+  display: grid;
+  gap: 0.22rem;
+}
+
+.scenario-unit-identity small {
+  overflow: hidden;
+  max-width: 22rem;
+  color: #adc1d5;
+  font-size: 0.76rem;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.scenario-unit-actions {
+  display: flex;
+  align-items: center;
+  gap: 0.55rem;
+}
+
+.table-delete-button {
+  border: 1px solid #783744;
+  border-radius: 0.3rem;
+  padding: 0.44rem 0.55rem;
+  color: #ffc4ca;
+  background: #351c25;
+  font-size: 0.72rem;
+  font-weight: 800;
+}
+
+.table-delete-button:hover {
+  background: #542634;
+}
+
+@media (max-width: 620px) {
+  .scenario-unit-row {
+    align-items: flex-start;
+    flex-direction: column;
+  }
+
+  .scenario-unit-actions {
+    width: 100%;
+  }
+
+  .scenario-unit-actions .status-select {
+    flex: 1;
+  }
+
+  .scenario-unit-identity small {
+    max-width: 16rem;
+  }
+}

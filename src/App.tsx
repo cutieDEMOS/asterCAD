@@ -11,6 +11,21 @@ import { NewIncidentModal } from "./components/NewIncidentModal";
 import { ScenarioPanel } from "./components/ScenarioPanel";
 import { Timeline } from "./components/Timeline";
 import { UnitBoard } from "./components/UnitBoard";
+import { CreateUnitModal } from "./components/CreateUnitModal";
+import { ScenarioUnitBoard } from "./components/ScenarioUnitBoard";
+
+import {
+  createScenarioUnit,
+  deleteScenarioUnit,
+  listScenarioUnits,
+  updateScenarioUnitStatus,
+} from "./lib/units";
+
+import type {
+  CreateUnitInput,
+  ScenarioUnit,
+  UnitStatus as ScenarioUnitStatus,
+} from "./types/unit";
 
 import {
   createScenario,
@@ -81,6 +96,15 @@ export default function App() {
   const [isCreateScenarioOpen, setIsCreateScenarioOpen] = useState(false);
   const [isCreatingScenario, setIsCreatingScenario] = useState(false);
 
+  const [scenarioUnits, setScenarioUnits] = useState<ScenarioUnit[]>([]);
+  const [isScenarioUnitsLoading, setIsScenarioUnitsLoading] = useState(false);
+  const [scenarioUnitsError, setScenarioUnitsError] = useState<string | null>(
+    null,
+  );
+
+  const [isCreateUnitOpen, setIsCreateUnitOpen] = useState(false);
+  const [isCreatingUnit, setIsCreatingUnit] = useState(false);
+
   useEffect(() => {
     saveCadState(cadState);
   }, [cadState]);
@@ -109,6 +133,9 @@ export default function App() {
         setScenarios([]);
         setSelectedScenarioId(null);
         setScenarioError(null);
+
+        setScenarioUnits([]);
+        setScenarioUnitsError(null);
       }
     });
 
@@ -155,6 +182,47 @@ export default function App() {
 
     void loadScenarios();
   }, [session]);
+
+  useEffect(() => {
+    if (!session || !selectedScenarioId) {
+      return;
+    }
+
+    const scenarioId = selectedScenarioId;
+    let isCancelled = false;
+
+    async function loadUnits() {
+      setIsScenarioUnitsLoading(true);
+      setScenarioUnitsError(null);
+
+      try {
+        const nextUnits = await listScenarioUnits(scenarioId);
+
+        if (!isCancelled) {
+          setScenarioUnits(nextUnits);
+        }
+      } catch (error) {
+        if (!isCancelled) {
+          const message =
+            error instanceof Error
+              ? error.message
+              : "Unable to load scenario units.";
+
+          setScenarioUnitsError(message);
+        }
+      } finally {
+        if (!isCancelled) {
+          setIsScenarioUnitsLoading(false);
+        }
+      }
+    }
+
+    void loadUnits();
+
+    return () => {
+      isCancelled = true;
+    };
+  }, [session, selectedScenarioId]);
 
   const selectedIncident = useMemo(() => {
     return (
@@ -419,12 +487,23 @@ export default function App() {
         (item) => item.id !== scenario.id,
       );
 
+      const deletedSelectedScenario = selectedScenarioId === scenario.id;
+
       setScenarios(nextScenarios);
+
+      if (deletedSelectedScenario) {
+        setSelectedScenarioId(nextScenarios[0]?.id ?? null);
+        setScenarioUnits([]);
+        setScenarioUnitsError(null);
+      }
 
       setSelectedScenarioId((currentSelectedId) => {
         if (currentSelectedId !== scenario.id) {
           return currentSelectedId;
         }
+
+        setScenarioUnits([]);
+        setScenarioUnitsError(null);
 
         return nextScenarios[0]?.id ?? null;
       });
@@ -439,6 +518,90 @@ export default function App() {
   function openCreateScenarioModal() {
     setScenarioError(null);
     setIsCreateScenarioOpen(true);
+  }
+
+  function openCreateUnitModal() {
+    if (!selectedScenarioId) {
+      setScenarioUnitsError("Create or select a scenario before adding units.");
+      return;
+    }
+
+    setScenarioUnitsError(null);
+    setIsCreateUnitOpen(true);
+  }
+
+  async function handleCreateUnit(input: CreateUnitInput) {
+    if (!selectedScenarioId) {
+      setScenarioUnitsError("No scenario is selected.");
+      return;
+    }
+
+    setIsCreatingUnit(true);
+    setScenarioUnitsError(null);
+
+    try {
+      const createdUnit = await createScenarioUnit(selectedScenarioId, input);
+
+      setScenarioUnits((current) =>
+        [...current, createdUnit].sort((a, b) =>
+          a.callsign.localeCompare(b.callsign),
+        ),
+      );
+
+      setIsCreateUnitOpen(false);
+    } catch (error) {
+      const message =
+        error instanceof Error ? error.message : "Unable to add the unit.";
+
+      setScenarioUnitsError(message);
+    } finally {
+      setIsCreatingUnit(false);
+    }
+  }
+
+  async function handleScenarioUnitStatusChange(
+    unitId: string,
+    status: ScenarioUnitStatus,
+  ) {
+    setScenarioUnitsError(null);
+
+    try {
+      const updatedUnit = await updateScenarioUnitStatus(unitId, status);
+
+      setScenarioUnits((current) =>
+        current.map((unit) => (unit.id === unitId ? updatedUnit : unit)),
+      );
+    } catch (error) {
+      const message =
+        error instanceof Error ? error.message : "Unable to update unit status.";
+
+      setScenarioUnitsError(message);
+    }
+  }
+
+  async function handleDeleteScenarioUnit(unit: ScenarioUnit) {
+    const confirmed = window.confirm(
+      `Delete fictional unit "${unit.callsign}" from this scenario?`,
+    );
+
+    if (!confirmed) {
+      return;
+    }
+
+    setScenarioUnitsError(null);
+
+    try {
+      await deleteScenarioUnit(unit.id);
+
+      setScenarioUnits((current) =>
+        current.filter((item) => item.id !== unit.id),
+      );
+    } catch (error) {
+      const message =
+        error instanceof Error ? error.message : "Unable to delete the unit.";
+
+      setScenarioUnitsError(message);
+    }
   }
 
   function renderMainPage() {
@@ -505,16 +668,41 @@ export default function App() {
     }
 
     if (activePage === "UNITS") {
-      return (
-        <section className="panel page-placeholder">
-          <p className="eyebrow">Resource management</p>
-          <h2>Units</h2>
+      if (!session) {
+        return (
+          <section className="panel signed-out-scenarios">
+            <p className="eyebrow">Sign-in required</p>
+            <h2>Saved Units</h2>
+            <p className="empty-state">
+              Sign in and select a scenario to manage fictional scenario units.
+            </p>
+          </section>
+        );
+      }
 
-          <UnitBoard
-            onStatusChange={updateUnitStatus}
-            units={cadState.units}
-          />
-        </section>
+      if (!selectedScenarioId) {
+        return (
+          <section className="panel signed-out-scenarios">
+            <p className="eyebrow">Scenario required</p>
+            <h2>Saved units</h2>
+            <p className="empty-state">
+              Create or select a fictional scenario before managing units.
+            </p>
+          </section>
+        );
+      }
+
+      return (
+        <ScenarioUnitBoard
+          errorMessage={scenarioUnitsError}
+          isLoading={isScenarioUnitsLoading}
+          onAddUnit={openCreateUnitModal}
+          onDeleteUnit={(unit) => void handleDeleteScenarioUnit(unit)}
+          onStatusChange={(unitId, status) => 
+            void handleScenarioUnitStatusChange(unitId, status)
+          }
+          units={scenarioUnits}
+        />
       );
     }
 
@@ -617,6 +805,14 @@ export default function App() {
           isOpen={isCreateScenarioOpen}
           onClose={() => setIsCreateScenarioOpen(false)}
           onCreate={(input) => void handleCreateScenario(input)}
+        />
+
+        <CreateUnitModal
+          errorMessage={scenarioUnitsError}
+          isCreating={isCreatingUnit}
+          isOpen={isCreateUnitOpen}
+          onClose={() => setIsCreateUnitOpen(false)}
+          onCreate={(input) => void handleCreateUnit(input)}
         />
       </main>
     </div>
